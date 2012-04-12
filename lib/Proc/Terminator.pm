@@ -18,11 +18,13 @@ sub try_kill {
     my ($self,$do_kill) = @_;
     
     if (kill(0, $self->pid) == 0) {
-        $DEBUG and warn "Kill with signal=0 returned 0";
-        if ($! != ESRCH) {
-            warn $!;
+        my $errno_save = $!;
+        $DEBUG and warn "Kill with signal=0 returned 0 (dead!)";
+        if ($errno_save != ESRCH) {
+            warn $errno_save;
             return -1;
         }
+        # else, == ESRCH
         return 1;
     }
     
@@ -31,12 +33,12 @@ sub try_kill {
         return 0;
     }
     my $sig = shift @{$self->siglist};
-    $DEBUG and warn "Using signal $sig";
 
     if (!defined $sig) {
         $DEBUG and warn "Cannot kill ${\$self->pid} because no signals remain";
         return -1;
     }
+    $DEBUG and warn "Using signal $sig for ${\$self->pid}";
     
     if (kill($sig, $self->pid) == 1) {
         return 0;
@@ -54,10 +56,10 @@ package Proc::Terminator;
 use warnings;
 use strict;
 use Time::HiRes qw(time sleep);
-use POSIX qw(:signal_h);
+use POSIX qw(:signal_h :sys_wait_h :errno_h);
 use base qw(Exporter);
 
-our $VERSION = 0.01;
+our $VERSION = 0.02;
 
 our @DefaultSignalOrder = (
     SIGINT,
@@ -114,10 +116,17 @@ sub proc_terminate {
         sleep($sleep_interval);
     }
     
+    while (my ($pid,$whatever) = each %procs) {
+        if (kill(0, $pid) == 0 && $! == ESRCH) {
+            delete $procs{$pid};
+        }
+    }
+    
     if (%procs) {
         warn("Processes still remain");
         return undef;
     }
+    
     if (wantarray) {
         return @badprocs;
     } else {

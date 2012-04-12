@@ -21,20 +21,26 @@ my $CHILD_DEAD = 0;
 my $PID;
 
 $SIG{CHLD} = sub {
-    note("A child terminated");
     waitpid($PID, WNOHANG);
+    diag sprintf(
+        "REAP %d. WIFSIGNALED: %d WTERMSIG: %d",
+        $PID, WIFSIGNALED($?), WTERMSIG($?));
     $CHILD_DEAD = 1;
 };
 
 sub _forkproc {
+    local $SIG{INT} = 'IGNORE';
+    local $SIG{QUIT} = 'IGNORE';
     $PID = fork();
     die "Couldn't fork" unless $PID >= 0;
+    diag "SPAWN $PID" if $PID;
+    
     if ($PID==0) {
-        $SIG{INT} = 'IGNORE';
-        $SIG{QUIT} = 'IGNORE';
-        alarm(10);
+        
+        alarm(15);
         while (1) {
             POSIX::pause();
+            warn("Interrupted..");
         }
         die("We shouldn't get here!");
     }

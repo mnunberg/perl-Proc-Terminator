@@ -1,4 +1,7 @@
 Revision history for Proc-Terminator
+0.03    April 12 2012
+        Exposed OO interface for subsequent use in POE component
+
 0.02    April 11 2012
         Fixed race condition in tests (forking and modifying %ENV)
         Make final kill(0, $pid) sweep before determining process

@@ -37,7 +37,7 @@ sub _forkproc {
     
     if ($PID==0) {
         
-        alarm(15);
+        alarm(7);
         while (1) {
             POSIX::pause();
             warn("Interrupted..");

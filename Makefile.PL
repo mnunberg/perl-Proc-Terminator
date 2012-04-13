@@ -15,7 +15,6 @@ WriteMakefile(
         'Test::More' => 0,
         'Time::HiRes' => 0,
         'POSIX' => 0,
-        'Class::Struct' => 0
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'Proc-Terminator-*' },

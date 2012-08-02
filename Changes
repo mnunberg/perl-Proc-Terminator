@@ -1,4 +1,8 @@
 Revision history for Proc-Terminator
+
+0.04    August 1 2012
+        Make defaults coderefs for Moo
+
 0.03    April 12 2012
         Exposed OO interface for subsequent use in POE component
 

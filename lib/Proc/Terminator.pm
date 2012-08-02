@@ -1,133 +1,34 @@
-package Proc::Terminator::Struct;
-use strict;
-use warnings;
-BEGIN {
-    $INC{'Proc/Terminator/Struct.pm'} = 1;
-}
-
-use base qw(Exporter);
-our @EXPORT = qw(mkstruct);
-
-my $SCALAR_TEMPLATE = <<'EOP';
-@_ == 1
-    ? __MODIFIER__( $_[0]->{$name} )
-    : @_ == 2
-        ? __MODIFIER__($_[0]->{$name} = $_[1])
-        : die "$name() or $name(value)";
-EOP
-
-# first argument reference is initializer
-# first argument string is key getter
-# second argument is key setter
-my $HASH_TEMPLATE = <<'EOP';
-@_ == 1 and return $_[0]->{$name};
-@_ == 3 and return __MODIFIER__($_[0]->{$name}->{$_[1]} = $_[2]);
-
-@_ != 2 and die
-    "$name(), $name(initializer), $name(key), $name(key => value)";
-
-if (ref $_[1]) {
-    die "Initializer must be HASH" unless ref $_[1] eq 'HASH';
-    return $_[0]->{$name} = $_[1];
-}
-#else
-return __MODIFIER__($_[0]->{$name}->{$_[1]});
-EOP
-
-my $ARRAY_TEMPLATE = <<'EOP';
-@_ == 1 and return $_[0]->{$name};
-@_ == 3 and return __MODIFIER__($_[0]->{$name}->[$_[1]] = $_[2]);
-@_ != 2 and die
-    "$name(), $name(initializer), $name(idx), $name(idx, value)";
-    
-if (ref $_[1]) {
-    die "Initializer must be ARRAY" unless ref $_[1] eq 'ARRAY';
-    return $_[0]->{$name} = $_[1];
-}
-# else
-return __MODIFIER__($_[0]->{$name}->[$_[1]])
-EOP
-
-my $CLASS_TEMPLATE = <<'EOP';
-@_ == 1 and return __MODIFIER__($_[0]->{$name});
-if (@_ == 2) {
-    UNIVERSAL::isa($_[1], __CLASSNAME__)
-        or die "$_[1] is not a __CLASSNAME__";
-    __MODIFIER__($_[0]->{$name} = $_[1]);
-}
-EOP
-
-my %AccMap = (
-    '$' => [ $SCALAR_TEMPLATE, ''],    
-    '@' => [ $ARRAY_TEMPLATE, ''],    
-    '%' => [ $HASH_TEMPLATE, '' ],
-);
-foreach my $t (keys %AccMap) {
-    my $refparams = [ @{$AccMap{$t} } ];
-    $refparams->[1] = '\\';
-    $t = "*$t";
-    $AccMap{$t} = $refparams;
-}
-
-sub mkstruct {
-    my ($cls,$decls) = @_;
-    my %members = @$decls;
-    no strict 'refs';
-    while ( my ($name,$type) = each %members ) {
-        my $params = $AccMap{$type};
-        my $classname;
-        if (!$params) {
-            $params = [ $CLASS_TEMPLATE, ''];
-            if ($type =~ /^\*/) {
-                $params->[1] = '\\';
-                $type =~ s/^\*//g;
-            }
-            $classname = $type;
-        }
-        my ($template,$modifier) = @$params;
-        $template =~ s/__MODIFIER__/$modifier/g;
-        if ($classname) {
-            $template =~ s/__CLASSNAME__/$classname/g;
-        }
-        $template = "sub { $template };";
-        *{"$cls\::$name"} = eval "$template";
-        if ($@){
-            die $@;
-        }
-    }
-    *{"$cls\::new"} = sub {
-        my ($cls,%options) = @_;
-        my $o = bless {}, $cls;
-        
-        while (my ($k,$v) = each %members) {
-            if (exists $options{$k}) {
-                $o->$k(delete $options{$k});
-            } else {
-                if ($v =~ /\@/) {
-                    $o->{$k} = [];
-                } elsif ($v =~ /%/) {
-                    $o->{$k} = {};
-                }
-            }
-        }
-        return $o;
-    };
-}
-
 package Proc::Terminator::Ctx;
 use strict;
 use warnings;
 use POSIX qw(errno_h);
 my $DEBUG = $ENV{PROC_TERMINATOR_DEBUG};
 
-Proc::Terminator::Struct::mkstruct 'Proc::Terminator::Ctx' =>
-    [
-     'pid' => '$',
-     'siglist' => '@',
-     'last_sent' => '$',
-     'error' => '$',
-    ];
+use Moo;
+has pid => (
+    is =>'ro',
+    required => 1,
+    isa => sub {
+        ($_[0] && $_[0] > 0) or die "PID must be a positive number!"
+    },
+);
 
+has siglist => (
+    is => 'rw',
+    required => 0,
+    isa => sub { ref $_[0] eq 'ARRAY' or die "Siglist must be an array reference" },
+    default => sub  { [] }
+);
+
+has last_sent => (
+    is => 'rw',
+    default => sub { 0 }
+);
+
+has error => (
+    is => 'rw',
+    default => sub { "" }
+);
 
 sub try_kill {
     my ($self,$do_kill) = @_;
@@ -174,18 +75,21 @@ use strict;
 use warnings;
 use POSIX qw(:errno_h);
 use Time::HiRes qw(sleep time);
+use Moo;
 
-# These are the field definitions used internally to 'subclass'
-# this structure.
-our @_FieldSpecs = (
-    procs => '*%',
-    grace_period => '$',
-    max_wait => '$',
-    interval => '$',
-    begin_time => '$',
-    badprocs => '*@'
+has procs => (
+    is => 'rw',
+    isa => sub { ref $_[0] eq 'HASH' or die "Expected hash reference!" },
+    default => sub { { } },
 );
-Proc::Terminator::Struct::mkstruct __PACKAGE__, [ @_FieldSpecs ];
+
+has grace_period => ( is => 'rw', default => sub { 0.75 });
+has max_wait => ( is => 'rw', default => sub  { 10 });
+has interval => (is => 'rw', default => sub { 0.25 });
+has badprocs => (is => 'rw',
+                 isa => sub { ref $_[0] eq 'ARRAY' or die "Expected arrayref!" },
+                 default => sub {  [ ] } );
+has begin_time => (is => 'rw', default => sub { 0 });
 
 sub with_pids {
     my ($cls,$pids,%options) = @_;
@@ -284,7 +188,7 @@ use Time::HiRes qw(time sleep);
 use POSIX qw(:signal_h :sys_wait_h :errno_h);
 use base qw(Exporter);
 
-our $VERSION = 0.03;
+our $VERSION = 0.05;
 
 our @DefaultSignalOrder = (
     SIGINT,

@@ -316,7 +316,7 @@ I<DEFAULT>: 0.25
 
 =back
 
-When called in a scalar context, returns true on sucess, and false otherwise.
+When called in a scalar context, returns true on success, and false otherwise.
 
 When called in list context, returns a list of the PIDS B<NOT> killed.
 
@@ -374,7 +374,7 @@ process
 
 =item error
 
-This is the captured value of C<$!> at the time the error occured (if any). If this
+This is the captured value of C<$!> at the time the error occurred (if any). If this
 is empty, then most likely the process did not respond to any signals in the
 signal list.
 

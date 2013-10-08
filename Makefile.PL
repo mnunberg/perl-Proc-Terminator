@@ -17,6 +17,11 @@ WriteMakefile(
         'POSIX' => 0,
         'Moo'   => 0.009014
     },
+    META_MERGE          => {
+        resources => {
+            repository => 'https://github.com/mnunberg/perl-Proc-Terminator',
+        },
+    },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'Proc-Terminator-*' },
 );
